@@ -1,0 +1,74 @@
+# docker/Dockerfile
+# Use RunPod's PyTorch base image
+FROM runpod/pytorch:2.1.0-py3.10-cuda12.1.1-devel-ubuntu22.04
+
+# Set working directory
+WORKDIR /workspace
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    git \
+    wget \
+    curl \
+    ffmpeg \
+    libsm6 \
+    libxext6 \
+    libxrender-dev \
+    libglib2.0-0 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Python dependencies
+RUN pip install --upgrade pip
+RUN pip install runpod huggingface_hub[cli] ninja
+
+# Clone HunyuanVideo-Avatar
+RUN git clone https://github.com/Tencent-Hunyuan/HunyuanVideo-Avatar.git .
+
+# Install project requirements
+RUN pip install -r requirements.txt
+
+# Install Flash Attention
+RUN pip install git+https://github.com/Dao-AILab/flash-attention.git@v2.6.3
+
+# Download HunyuanVideo-Avatar models with progress monitoring
+WORKDIR /workspace/weights
+RUN echo "Starting model download..." && \
+    echo "This may take 10-60 minutes depending on network speed" && \
+    huggingface-cli download tencent/HunyuanVideo-Avatar --local-dir ./ && \
+    echo "Model download completed!" && \
+    echo "Verifying model files..." && \
+    ls -la ckpts/ && \
+    echo "Model verification completed!"
+
+# Return to workspace directory
+WORKDIR /workspace
+
+# Copy our RunPod handler
+COPY ./src/handler.py /workspace/handler.py
+
+# Set environment variables
+ENV PYTHONPATH=/workspace
+ENV MODEL_BASE=/workspace/weights
+
+# Create directories
+RUN mkdir -p /workspace/weights /workspace/results /workspace/temp
+
+# Download models (uncomment and customize based on HunyuanVideo requirements)
+# RUN python -c "
+# import huggingface_hub
+# # Download main model
+# huggingface_hub.snapshot_download(
+#     repo_id='hunyuanvideo/HunyuanVideo', 
+#     local_dir='/workspace/weights/hunyuanvideo',
+#     token=None  # Add token if needed
+# )
+# # Download other required models
+# # Add other model downloads as needed
+# "
+
+# Health check
+HEALTHCHECK --interval=60s --timeout=30s --start-period=300s --retries=3 \
+    CMD python -c "import runpod; print('healthy')" || exit 1
+
+# Start the handler
+CMD ["python", "handler.py"]
