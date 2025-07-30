@@ -1,6 +1,6 @@
 # docker/Dockerfile
-# Use RunPod's PyTorch base image
-FROM runpod/pytorch:2.1.0-py3.10-cuda12.1.1-devel-ubuntu22.04
+# Use PyTorch base image matching HunyuanVideo-Avatar requirements
+FROM pytorch/pytorch:2.4.0-cuda12.4-cudnn8-devel
 
 # Set working directory
 WORKDIR /workspace

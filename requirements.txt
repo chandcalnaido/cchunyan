@@ -1,3 +1,19 @@
-# Use the official HunyuanVideo-Avatar requirements
-# This will be replaced by the actual requirements.txt from the repository
-# during the Docker build process 
+# HunyuanVideo-Avatar requirements (matching official repository)
+torch==2.4.0
+torchvision==0.19.0
+torchaudio==2.4.0
+transformers>=4.35.0
+diffusers>=0.24.0
+accelerate>=0.24.0
+safetensors>=0.4.0
+opencv-python>=4.8.0
+pillow>=10.0.0
+numpy>=1.24.0
+scipy>=1.11.0
+einops>=0.7.0
+omegaconf>=2.3.0
+timm>=0.9.0
+xformers>=0.0.22
+runpod>=1.5.0
+huggingface_hub[cli]>=0.19.0
+ninja>=1.11.0 
