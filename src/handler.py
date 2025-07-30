@@ -8,53 +8,122 @@ from pathlib import Path
 # Add the workspace to Python path
 sys.path.append('/workspace')
 
+# Import S3 storage component
+from s3_storage import RunPodS3Storage, create_s3_storage_from_env
+
+# --- S3-to-S3 Fallback Example (Commented Out) ---
+# To enable S3-to-S3 fallback, set up a secondary S3 config (e.g., another RunPod datacenter or AWS S3)
+# and uncomment the following lines:
+'''
+# SECONDARY S3 CONFIGURATION (example)
+secondary_s3 = RunPodS3Storage(
+    access_key_id=os.environ.get("SECONDARY_S3_ACCESS_KEY_ID"),
+    secret_access_key=os.environ.get("SECONDARY_S3_SECRET_ACCESS_KEY"),
+    datacenter=os.environ.get("SECONDARY_S3_DATACENTER"),
+    network_volume_id=os.environ.get("SECONDARY_S3_NETWORK_VOLUME_ID")
+)
+'''
+# --- End S3-to-S3 Fallback Example ---
+
 def load_model():
     """Load the HunyuanVideo-Avatar model"""
     try:
         print("Loading HunyuanVideo-Avatar model...")
         
-        # Check for models in RunPod network volume first, then fallback to container
-        network_volume_dir = Path("/runpod-volume/weights")
-        container_weights_dir = Path("/workspace/HunyuanVideo-Avatar/weights")
+        # Check for models in S3 storage first, then network volume, then container
+        s3_storage = None
+        weights_dir = None
         
-        # Determine which weights directory to use
-        if network_volume_dir.exists() and (network_volume_dir / "ckpts").exists():
-            weights_dir = network_volume_dir
-            print(f"✅ Using models from RunPod network volume: {weights_dir}")
-        elif container_weights_dir.exists() and (container_weights_dir / "ckpts").exists():
-            weights_dir = container_weights_dir
-            print(f"✅ Using models from container: {weights_dir}")
-        else:
-            # Download models to network volume
-            print("📥 Models not found. Downloading to RunPod network volume...")
-            weights_dir = network_volume_dir
-            weights_dir.mkdir(parents=True, exist_ok=True)
+        # Try to initialize S3 storage
+        try:
+            s3_storage = create_s3_storage_from_env()
+            print(f"✅ S3 storage initialized for datacenter: {s3_storage.datacenter}")
             
-            # Download models with progress monitoring
-            import subprocess
-            import sys
+            # Check if models exist in S3
+            if s3_storage.file_exists("weights/ckpts/hunyuan-video-t2v-720p/transformers/mp_rank_00_model_states_fp8.pt"):
+                print("✅ Models found in S3 storage")
+                # Download models from S3 to local
+                local_weights_dir = Path("/workspace/weights")
+                local_weights_dir.mkdir(parents=True, exist_ok=True)
+                
+                print("📥 Downloading models from S3...")
+                if s3_storage.download_file("weights/ckpts/hunyuan-video-t2v-720p/transformers/mp_rank_00_model_states_fp8.pt", 
+                                          str(local_weights_dir / "ckpts/hunyuan-video-t2v-720p/transformers/mp_rank_00_model_states_fp8.pt")):
+                    weights_dir = local_weights_dir
+                    print("✅ Models downloaded from S3 successfully")
+                else:
+                    print("⚠️  Failed to download models from S3, trying other sources...")
             
-            print("🔄 Starting model download (this may take 10-60 minutes)...")
-            print("📊 Download progress will be shown below:")
+        except Exception as e:
+            print(f"⚠️  S3 storage not available: {e}")
+        
+        # Fallback to network volume if S3 failed
+        if weights_dir is None:
+            network_volume_dir = Path("/runpod-volume/weights")
+            container_weights_dir = Path("/workspace/HunyuanVideo-Avatar/weights")
             
-            # Run huggingface-cli download with progress
-            process = subprocess.Popen([
-                "huggingface-cli", "download", 
-                "tencent/HunyuanVideo-Avatar", 
-                "--local-dir", str(weights_dir)
-            ], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True)
-            
-            # Stream the output in real-time
-            for line in process.stdout:
-                print(f"📥 {line.strip()}")
-                sys.stdout.flush()
-            
-            process.wait()
-            
-            if process.returncode != 0:
-                raise Exception("Model download failed")
-            
-            print("✅ Model download completed!")
+            if network_volume_dir.exists() and (network_volume_dir / "ckpts").exists():
+                weights_dir = network_volume_dir
+                print(f"✅ Using models from RunPod network volume: {weights_dir}")
+            elif container_weights_dir.exists() and (container_weights_dir / "ckpts").exists():
+                weights_dir = container_weights_dir
+                print(f"✅ Using models from container: {weights_dir}")
+            else:
+                # Download models and store in S3 if available
+                print("📥 Models not found. Downloading...")
+                local_weights_dir = Path("/workspace/weights")
+                local_weights_dir.mkdir(parents=True, exist_ok=True)
+                
+                # Download models with progress monitoring
+                import subprocess
+                import sys
+                
+                print("🔄 Starting model download (this may take 10-60 minutes)...")
+                print("📊 Download progress will be shown below:")
+                
+                # Run huggingface-cli download with progress
+                process = subprocess.Popen([
+                    "huggingface-cli", "download", 
+                    "tencent/HunyuanVideo-Avatar", 
+                    "--local-dir", str(local_weights_dir)
+                ], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True)
+                
+                # Stream the output in real-time
+                for line in process.stdout:
+                    print(f"📥 {line.strip()}")
+                    sys.stdout.flush()
+                
+                process.wait()
+                
+                if process.returncode != 0:
+                    raise Exception("Model download failed")
+                
+                print("✅ Model download completed!")
+                
+                # Upload to S3 if available
+                if s3_storage:
+                    print("☁️  Uploading models to S3 for future use...")
+                    if s3_storage.download_models("tencent/HunyuanVideo-Avatar", str(local_weights_dir)):
+                        print("✅ Models uploaded to S3 successfully")
+                    else:
+                        print("⚠️  Failed to upload models to S3")
+                    # --- S3-to-S3 Fallback Example (Commented Out) ---
+                    '''
+                    try:
+                        s3_storage.download_models("tencent/HunyuanVideo-Avatar", str(local_weights_dir))
+                        print("✅ Models uploaded to primary S3 successfully")
+                    except Exception as e:
+                        print(f"Primary S3 model upload failed: {e}")
+                        try:
+                            secondary_s3.download_models("tencent/HunyuanVideo-Avatar", str(local_weights_dir))
+                            print("✅ Models uploaded to secondary S3 successfully")
+                        except Exception as e2:
+                            print(f"Both S3 model uploads failed: {e2}")
+                            # Optionally, fallback to network volume here
+                    '''
+                    # --- End S3-to-S3 Fallback Example ---
+                
+                weights_dir = local_weights_dir
         
         # Check for key model files
         ckpts_dir = weights_dir / "ckpts"
@@ -192,10 +261,24 @@ def generate_video(job):
         output_video = video_files[0]
         print(f"✅ Video generated successfully: {output_video}")
         
+        # Upload to S3 if available
+        s3_url = None
+        if s3_storage:
+            try:
+                s3_key = f"results/job_{job['id']}/{output_video.name}"
+                if s3_storage.upload_file(str(output_video), s3_key):
+                    s3_url = s3_storage.get_file_url(s3_key)
+                    print(f"☁️  Video uploaded to S3: {s3_url}")
+                else:
+                    print("⚠️  Failed to upload video to S3")
+            except Exception as e:
+                print(f"⚠️  S3 upload error: {e}")
+        
         # Return the result
         return {
             "status": "success",
             "output_url": str(output_video),
+            "s3_url": s3_url,
             "metadata": {
                 "prompt": prompt,
                 "duration": duration,

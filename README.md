@@ -20,7 +20,9 @@ This project provides a containerized version of Tencent's HunyuanVideo-Avatar m
 - Single GPU inference with FP8 optimization
 - GPU-accelerated inference with CUDA support
 - Health monitoring and real-time progress tracking
-- Automatic model downloading to persistent storage
+- **S3 Storage Integration**: Automatic model persistence and result storage
+- **Multi-Project Support**: Share models across different RunPod projects
+- **Fallback Support**: Graceful degradation to network volumes
 - Support for high-quality 704x704 resolution
 
 ## Usage
@@ -45,6 +47,7 @@ This project provides a containerized version of Tencent's HunyuanVideo-Avatar m
 {
   "status": "success",
   "output_url": "/workspace/results/job_123/generated_video.mp4",
+  "s3_url": "s3://your-volume/results/job_123/generated_video.mp4",
   "metadata": {
     "prompt": "A cat walking in the rain",
     "duration": 5,
@@ -90,6 +93,28 @@ This project provides a containerized version of Tencent's HunyuanVideo-Avatar m
    - In endpoint configuration, expand "Advanced" section
    - Select your network volume from "Network Volume" dropdown
 4. Configure the endpoint with appropriate GPU resources (24GB+ VRAM recommended)
+
+### S3 Storage Setup (Optional but Recommended)
+
+For better model persistence and multi-project support:
+
+1. **Create S3 API Key**:
+   - Go to RunPod Settings → S3 API Keys → Create S3 API Key
+   - Save the access key and secret
+
+2. **Set Environment Variables**:
+   ```
+   RUNPOD_S3_ACCESS_KEY_ID=user_xxx...
+   RUNPOD_S3_SECRET_ACCESS_KEY=rps_xxx...
+   RUNPOD_DATACENTER=US-KS-2
+   RUNPOD_NETWORK_VOLUME_ID=your_volume_id
+   ```
+
+3. **Benefits**:
+   - ✅ Models shared across multiple projects
+   - ✅ No model duplication
+   - ✅ Cost-effective storage
+   - ✅ Automatic fallback to network volumes
 
 ### Important Notes
 - **Build Time**: Model download happens during first worker start (not during build)
