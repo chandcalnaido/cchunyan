@@ -24,21 +24,14 @@ RUN pip install runpod huggingface_hub[cli] ninja
 # Clone HunyuanVideo-Avatar
 RUN git clone https://github.com/Tencent-Hunyuan/HunyuanVideo-Avatar.git .
 
-# Install project requirements
+# Install project requirements (use the official requirements.txt from HunyuanVideo-Avatar)
 RUN pip install -r requirements.txt
 
 # Install Flash Attention
 RUN pip install git+https://github.com/Dao-AILab/flash-attention.git@v2.6.3
 
-# Download HunyuanVideo-Avatar models with progress monitoring
-WORKDIR /workspace/weights
-RUN echo "Starting model download..." && \
-    echo "This may take 10-60 minutes depending on network speed" && \
-    huggingface-cli download tencent/HunyuanVideo-Avatar --local-dir ./ && \
-    echo "Model download completed!" && \
-    echo "Verifying model files..." && \
-    ls -la ckpts/ && \
-    echo "Model verification completed!"
+# Create directories for local storage (network volume will be mounted at /runpod-volume)
+RUN mkdir -p /workspace/results /workspace/temp
 
 # Return to workspace directory
 WORKDIR /workspace
@@ -48,10 +41,7 @@ COPY ./src/handler.py /workspace/handler.py
 
 # Set environment variables
 ENV PYTHONPATH=/workspace
-ENV MODEL_BASE=/workspace/weights
-
-# Create directories
-RUN mkdir -p /workspace/weights /workspace/results /workspace/temp
+ENV MODEL_BASE=/runpod-volume/weights
 
 # Download models (uncomment and customize based on HunyuanVideo requirements)
 # RUN python -c "
