@@ -1,0 +1,31 @@
+HUNYUAN ENDPOINT QUICK REFERENCE
+================================
+
+ENVIRONMENT VARIABLES:
+AWS_ACCESS_KEY_ID=AKIA...
+AWS_SECRET_ACCESS_KEY=xxxxx
+AWS_DEFAULT_REGION=us-east-2
+S3_BUCKET_NAME=my-runpod-storage-01
+PYTHONPATH=/workspace
+MODEL_BASE=/workspace/weights
+
+GPU SETTINGS:
+GPU: A100 80GB (or RTX 4090 24GB+)
+Workers: 1
+Container Disk: 50GB
+Network Volume: None (using S3)
+
+TIMEOUT SETTINGS:
+Request Timeout: 1800s
+Worker Timeout: 3600s
+
+DEPLOYMENT:
+Repository: chandcalnaido/cchunyan
+Build Context: .
+Dockerfile: docker/Dockerfile
+
+AWS S3 BUCKET:
+Name: my-runpod-storage-01
+Region: us-east-2
+Type: General Purpose
+ACLs: Disabled 
