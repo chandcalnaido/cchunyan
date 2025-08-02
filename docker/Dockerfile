@@ -22,7 +22,8 @@ RUN pip install --upgrade pip
 RUN pip install runpod huggingface_hub[cli] ninja
 
 # Upgrade to PyTorch 2.4.0 (matching HunyuanVideo-Avatar requirements)
-RUN pip install torch==2.4.0 torchvision==0.19.0 torchaudio==2.4.0 --index-url https://download.pytorch.org/whl/cu121
+# Use standard pip install (PyTorch will auto-detect CUDA)
+RUN pip install torch==2.4.0 torchvision==0.19.0 torchaudio==2.4.0
 
 # Clone HunyuanVideo-Avatar
 RUN git clone https://github.com/Tencent-Hunyuan/HunyuanVideo-Avatar.git .
