@@ -1,5 +1,5 @@
 # docker/Dockerfile
-# Use stable PyTorch base image that exists, then upgrade to 2.4.0
+# Use stable PyTorch base image with PyTorch 2.3.1 pre-installed
 FROM pytorch/pytorch:2.3.1-cuda12.1-cudnn8-devel
 
 # Set working directory
@@ -20,10 +20,6 @@ RUN apt-get update && apt-get install -y \
 # Install Python dependencies
 RUN pip install --upgrade pip
 RUN pip install runpod huggingface_hub[cli] ninja
-
-# Upgrade to PyTorch 2.4.0 (matching HunyuanVideo-Avatar requirements)
-# Use standard pip install (PyTorch will auto-detect CUDA)
-RUN pip install torch==2.4.0 torchvision==0.19.0 torchaudio==2.4.0
 
 # Clone HunyuanVideo-Avatar
 RUN git clone https://github.com/Tencent-Hunyuan/HunyuanVideo-Avatar.git .
